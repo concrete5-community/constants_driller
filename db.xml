@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<schema version="0.3">
+<table name="ConstantsDrills">
+</table>
+<table name="ConstantsDrillsConstants">
+</table>
+</schema>
