@@ -1,7 +1,57 @@
 <?xml version="1.0"?>
 <schema version="0.3">
-<table name="ConstantsDrills">
-</table>
-<table name="ConstantsDrillsConstants">
-</table>
+	<table name="ConstantDrills">
+		<descr>List of constants look-ups</descr>
+		<field name="cdID" type="I">
+			<autoincrement />
+      	<key />
+      	<notnull />
+      	<unsigned />
+    	</field>
+    	<field name="cdDate" type="T">
+    		<notnull />
+    		<deftimestamp />
+    	</field>
+	</table>
+	<table name="ConstantDrillConstants">
+		<descr>List of constants for each look-up</descr>
+		<field name="cdcID" type="I">
+			<autoincrement />
+      	<key />
+      	<notnull />
+      	<unsigned />
+    	</field>
+		<field name="cdcCD" type="I">
+      	<notnull />
+      	<unsigned />
+      	<constraint>,FOREIGN KEY (cdcCD) REFERENCES ConstantDrills (cdID)</constraint>
+    	</field>
+		<field name="cdcConstant" type="C" size="100">
+      	<notnull />
+		</field>
+	</table>
+	<table name="ConstantDrillConstantPlaces">
+		<descr>List of places and usage for each constant</descr>
+		<field name="cdcpID" type="I">
+			<autoincrement />
+      	<key />
+      	<notnull />
+      	<unsigned />
+    	</field>
+		<field name="cdcpCDC" type="I">
+      	<notnull />
+      	<unsigned />
+      	<constraint>,FOREIGN KEY (cdcpCDC) REFERENCES ConstantDrillConstants (cdcID)</constraint>
+		</field>
+		<field name="cdcpUsage" type="C" size="255">
+      	<notnull />
+		</field>
+		<field name="cdcpFile" type="C" size="255">
+      	<notnull />
+		</field>
+		<field name="cdcpLine" type="I">
+      	<notnull />
+      	<unsigned />
+		</field>
+	</table>
 </schema>
