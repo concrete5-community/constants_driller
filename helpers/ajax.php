@@ -7,7 +7,7 @@ class AjaxHelper {
 	*/
 	public function sendResult($result) {
 		@ob_end_clean();
-		header('Content-Type: text/javascript; charset=' . APP_CHARSET, true);
+		header('Content-Type: application/json; charset=' . APP_CHARSET, true);
 		echo Loader::helper('json')->encode($result);
 		die();
 	}
@@ -18,7 +18,7 @@ class AjaxHelper {
 	public function sendError($error) {
 		@ob_end_clean();
 		header($_SERVER['SERVER_PROTOCOL'] . ' 400 Bad Request', true, 400);
-		header('Content-Type: text-plain; charset=' . APP_CHARSET, true);
+		header('Content-Type: text/plain; charset=' . APP_CHARSET, true);
 		echo ($error instanceof Exception) ? $error->getMessage() : $error;
 		die();
 	}
