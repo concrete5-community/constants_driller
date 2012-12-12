@@ -145,7 +145,7 @@ var ConstantDriller = {
 		}
 	},
 	rescan: function() {
-		if(!confirm(<?php echo $jh->encode(t('This operation may take some time.') . "\n" . t('Proceed?')) ?>)) {
+		if(!confirm(<?php echo $jh->encode(t('This operation may take a few minutes.') . "\n" . t('Do you want to proceed anyway?')) ?>)) {
 			return;
 		}
 		jQuery.fn.dialog.showLoader();
