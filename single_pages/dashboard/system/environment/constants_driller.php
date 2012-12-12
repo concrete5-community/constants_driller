@@ -4,36 +4,7 @@ $dh = Loader::helper('concrete/dashboard');
 $th = Loader::helper('text');
 $jh = Loader::helper('json');
 $fh = Loader::helper('form');
-
 ?>
-<style>
-#ConstantDriller-list {
-	table-layout:fixed;
-}
-#ConstantDriller-list tbody td.n, #ConstantDriller-list tbody td.v {
-	overflow:hidden;
-}
-#ConstantDriller-list span.str {
-	color: #cc0000;
-}
-#ConstantDriller-list span.num {
-	color: #4e9a06;
-}
-#ConstantDriller-list span.bool {
-	color: #75507b;
-}
-#ConstantDriller-list span.null {
-	color:#000;
-	font-style:italic;
-}
-#ConstantDriller-list span.other {
-	font-style:italic;
-	color:#aaa;
-}
-#ConstantDriller-list a.disabled {
-	color:#777;
-}
-</style>
 <script>
 var ConstantDriller = {
 	initialize: function() {

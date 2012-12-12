@@ -2,6 +2,40 @@
 
 class DashboardSystemEnvironmentConstantsDrillerController extends DashboardBaseController {
 
+	public function on_start() {
+		$this->addHeaderItem(<<<EOT
+<style>
+#ConstantDriller-list {
+	table-layout:fixed;
+}
+#ConstantDriller-list tbody td.n, #ConstantDriller-list tbody td.v {
+	overflow:hidden;
+}
+#ConstantDriller-list span.str {
+	color: #cc0000;
+}
+#ConstantDriller-list span.num {
+	color: #4e9a06;
+}
+#ConstantDriller-list span.bool {
+	color: #75507b;
+}
+#ConstantDriller-list span.null {
+	color:#000;
+	font-style:italic;
+}
+#ConstantDriller-list span.other {
+	font-style:italic;
+	color:#aaa;
+}
+#ConstantDriller-list a.disabled {
+	color:#777;
+}
+</style>
+EOT
+		);
+	}
+
 	public function ajax_scan() {
 		$ah = Loader::helper('ajax', 'constants_driller');
 		try {
@@ -9,7 +43,7 @@ class DashboardSystemEnvironmentConstantsDrillerController extends DashboardBase
 				@set_time_limit(10 * 60);
 			}
 			$constants = self::scanConstants();
-			$lastUpdate = date(DATE_APP_GENERIC_MDYT);
+			$lastUpdate = self::formatLastUpdate(time());
 			self::saveConstants($constants);
 			self::fillCurrentValues($constants);
 			$ah->sendResult(array('lastUpdate' => $lastUpdate));
@@ -31,6 +65,16 @@ class DashboardSystemEnvironmentConstantsDrillerController extends DashboardBase
 		catch(Exception $x) {
 			$ah->sendError($x);
 		}
+	}
+
+	private static function formatLastUpdate($timestamp) {
+		if($timestamp) {
+			$s = date(DATE_APP_GENERIC_MDYT, $timestamp);
+		}
+		else {
+			$s = t('never accomplished');
+		}
+		return t('Last scan: %s', $s);
 	}
 
 	public function ajax_search() {
@@ -125,13 +169,7 @@ class DashboardSystemEnvironmentConstantsDrillerController extends DashboardBase
 	
 	public static function getLastDrillDatetime() {
 		$info = self::getLastDrillInfo();
-		if($info) {
-			$s = date(DATE_APP_GENERIC_MDYT, $info['timestamp']);
-		}
-		else {
-			$s = t('never accomplished');
-		}
-		return t('Last scan: %s', $s);
+		return self::formatLastUpdate($info ? $info['timestamp'] : null);
 	}
 
 	/** Returns the last scan id.
