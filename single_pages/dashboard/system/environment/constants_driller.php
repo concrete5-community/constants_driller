@@ -233,7 +233,7 @@ $(document).ready(function() {
 	<a href="javascript:void(0)" onclick="ccm_paneToggleOptions(this)" class="ccm-icon-option-closed"><?=t('Options')?></a>
 	<div class="ccm-pane-options-content">
 		<form class="form-horizontal" onsubmit="return false">
-			<div class="span1">
+			<div class="span2">
 				<?php echo $fh->button('cdRescan', t('Rescan'), array('onclick' => 'ConstantDriller.rescan(); return false')); ?>
 			</div>
 			<div class="span6">
