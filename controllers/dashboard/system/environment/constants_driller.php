@@ -484,27 +484,31 @@ EOT
 						$files[] = $file;
 					}
 				}
+				if($rel == '') {
+					$a = realpath(DIR_BASE);
+					$b = realpath(DIR_BASE_CORE);
+					if(strpos($b, $a) === 0) {
+						$c = str_replace('\\', '/', substr(DIR_BASE_CORE, strlen(DIR_BASE) + 1));
+					}
+					else {
+						$c = 'concrete';
+					}
+					self::scanDirectory($c, DIR_BASE_CORE, $files);
+				}
 				natcasesort($subDirs);
 				foreach($subDirs as $subDir) {
 					$subDirRel = $rel . $subDir;
-					$subDirFull = realpath($full . $subDir);
-					$skip = false;
 					switch($subDirRel) {
 						case 'files':
-							$skip = true;
+						case DIRNAME_APP:
+						case DIRNAME_UPDATES:
 							break;
-						case 'concrete':
-							if($subDirFull !== realpath(DIR_BASE_CORE)) {
-								$skip = false;
-							}
+						default:
+							self::scanDirectory($subDirRel, $full . $subDir, $files);
 							break;
-						case 'updates':
-							break;
-					}
-					if(!$skip) {
-						self::scanDirectory($subDirRel, $full . $subDir, $files);
 					}
 				}
+				if($rel == '')throw new Exception('x');
 			}
 		}
 	}
