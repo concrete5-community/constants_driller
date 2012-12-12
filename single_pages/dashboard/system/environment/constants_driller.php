@@ -47,7 +47,7 @@ var ConstantDriller = {
 				}
 			}
 			else {
-				this.htmlValue = '<span class="undef"><?php echo t('Not defined.'); ?></span>';
+				this.htmlValue = '<span class="undef"><?php echo t('Not defined'); ?></span>';
 			}
 			parsed.push(this);
 		});
@@ -209,7 +209,7 @@ var ConstantDriller = {
 			$dialog.dialog({
 				title: title,
 				modal: false,
-				width: 600,
+				width: 700,
 				resizable: true,
 				open: function() {
 					$(this).parent().find('.ui-dialog-buttonpane').addClass("ccm-ui").html('');

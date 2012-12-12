@@ -1,7 +1,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: constants_driller 1.0\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2012-12-12 16:36+0000\n"
+        "POT-Creation-Date: 2012-12-12 16:51+0000\n"
         "MIME-Version: 1.0\n"
         "X-Poedit-Basepath: ../../..\n"
         "X-Poedit-SourceCharset: UTF-8\n"
@@ -37,7 +37,7 @@ msgid   "Please specify some search criteria."
 msgstr  ""
 
 #: packages/constants_driller/single_pages/dashboard/system/environment/constants_driller.php:50
-msgid   "Not defined."
+msgid   "Not defined"
 msgstr  ""
 
 #: packages/constants_driller/single_pages/dashboard/system/environment/constants_driller.php:119

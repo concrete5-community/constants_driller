@@ -24,7 +24,7 @@ class DashboardSystemEnvironmentConstantsDrillerController extends DashboardBase
 	color:#000;
 	font-style:italic;
 }
-#ConstantDriller-list span.other {
+#ConstantDriller-list span.other, #ConstantDriller-list span.undef {
 	font-style:italic;
 	color:#aaa;
 }
