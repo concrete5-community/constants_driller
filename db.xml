@@ -24,7 +24,6 @@
 		<field name="cdcCD" type="I">
       	<notnull />
       	<unsigned />
-      	<constraint>,FOREIGN KEY (cdcCD) REFERENCES ConstantDrills (cdID)</constraint>
     	</field>
 		<field name="cdcConstant" type="C" size="100">
       	<notnull />
@@ -41,9 +40,8 @@
 		<field name="cdcpCDC" type="I">
       	<notnull />
       	<unsigned />
-      	<constraint>,FOREIGN KEY (cdcpCDC) REFERENCES ConstantDrillConstants (cdcID)</constraint>
 		</field>
-		<field name="cdcpUsage" type="C" size="255">
+		<field name="cdcpUsage" type="C" size="1">
       	<notnull />
 		</field>
 		<field name="cdcpFile" type="C" size="255">

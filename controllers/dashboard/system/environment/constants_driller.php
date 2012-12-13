@@ -2,6 +2,12 @@
 
 class DashboardSystemEnvironmentConstantsDrillerController extends DashboardBaseController {
 
+	/** Identifier for places where a constant is defined.
+	* @var string
+	*/
+	const OP_DEFINED = 'd';
+	const OP_USED = 'u';
+
 	public function on_start() {
 		$this->addHeaderItem(<<<EOT
 <style>
@@ -40,7 +46,7 @@ EOT
 		$ah = Loader::helper('ajax', 'constants_driller');
 		try {
 			if (!@ini_get('safe_mode')) {
-				@set_time_limit(10 * 60);
+				@set_time_limit(15 * 60);
 			}
 			$constants = self::scanConstants();
 			$lastUpdate = self::formatLastUpdate(time());
@@ -52,12 +58,104 @@ EOT
 			$ah->sendError($x);
 		}
 	}
-	public function ajax_getall() {
+
+	public function ajax_search() {
 		$ah = Loader::helper('ajax', 'constants_driller');
 		try {
+			$filter = array();
+			$no3rdparty = false;
+			foreach(array('name', 'usage', 'file', 'no3rdparty') as $name) {
+				$value = $this->post($name);
+				if(is_string($value) && strlen($value)) {
+					switch($name) {
+						case 'usage':
+							switch($value) {
+								case self::OP_DEFINED:
+								case self::OP_USED:
+									break;
+								default:
+									$ah->sendError(t('Invalid parameter: %s', $name));
+							}
+						case 'file':
+							$value = str_replace('\\', '/', $value);
+							break;
+						case 'no3rdparty':
+							switch($value) {
+								case '0':
+									$no3rdparty = false;
+									$value = null;
+								case '1':
+									$no3rdparty = true;
+									$value = null;
+									break;
+								default:
+									$ah->sendError(t('Invalid parameter: %s', $name));
+							}
+					}
+					if(!is_null($value)) {
+						$filter[$name] = $value;
+					}
+				}
+			}
 			$constants = self::loadConstants();
 			if(empty($constants)) {
 				$ah->sendError(t('You have to do a first-time scan (under the options pane available clicking the upper-right "Option" label).'));
+			}
+			if(!empty($filter)) {
+				$filtered = array();
+				foreach($constants as $name => $usages) {
+					$ok = false;
+					if((!$ok) && isset($filter['name']) && (stripos($name, $filter['name']) !== false)) {
+						$ok = true;
+					}
+					if((!$ok) && (isset($filter['usage']) || isset($filter['file']))) {
+						$lookIn = array();
+						foreach(array(self::OP_DEFINED, self::OP_USED) as $k) {
+							if((!isset($filter['usage'])) || ($filter['usage'] == $k)) {
+								$lookIn[] = $k;
+							}
+						}
+						foreach($lookIn as $usage) {
+							foreach($usages[$usage] as $place) {
+								if(isset($filter['file']) && (stripos($place['file'], $filter['file']) !== false)) {
+									$ok = true;
+									break;
+								}
+							}
+							if($ok) {
+								break;
+							}
+						}
+					}
+					if($ok) {
+						$filtered[$name] = $usages;
+					}
+				}
+				$constants = $filtered;
+				unset($filtered);
+			}
+			if($no3rdparty) {
+				$filtered = array();
+				$excludeMe = self::getCoreRelFolder() . '/libraries/3rdparty';
+				foreach($constants as $name => $usages) {
+					$only3rdparty = true;
+					foreach(array(self::OP_DEFINED, self::OP_USED) as $k) {
+						foreach($usages[$k] as $place) {
+							if(strpos($place['file'], $excludeMe) !== 0) {
+								$only3rdparty = false;
+								break;
+							}
+						}
+						if(!$only3rdparty) {
+							break;
+						}
+					}
+					if(!$only3rdparty) {
+						$filtered[$name] = $usages;
+					}
+				}
+				$constants = $filtered;
+				unset($filtered);
 			}
 			self::fillCurrentValues($constants);
 			$ah->sendResult($constants);
@@ -77,76 +175,21 @@ EOT
 		return t('Last scan: %s', $s);
 	}
 
-	public function ajax_search() {
-		$ah = Loader::helper('ajax', 'constants_driller');
-		try {
-			$filter = array();
-			foreach(array('name', 'file', 'usage') as $k) {
-				$f = $this->post($k);
-				if(is_string($f) && strlen($f)) {
-					switch($k) {
-						case 'file':
-							$f = str_replace('\\', '/', $f);
-							break;
-					}
-					if(strlen($f)) {
-						$filter[$k] = $f;
-					}
-				}
-			}
-			if(empty($filter)) {
-				$ah->sendError(t('Please specify some search criteria.'));
-			}
-			$constants = self::loadConstants();
-			if(empty($constants)) {
-				$ah->sendError(t('You have to do a first-time scan (under the options pane available clicking the upper-right "Option" label).'));
-			}
-			$result = array();
-			foreach($constants as $constant) {
-				$ok = false;
-				if((!$ok) && isset($filter['name']) && (stripos($constant['name'], $filter['name']) !== false)) {
-					$ok = true;
-				}
-				if((!$ok) && (isset($filter['file']) || isset($filter['usage']))) {
-					foreach($constant['places'] as $place) {
-						if(isset($filter['file']) && (stripos($place['file'], $filter['file']) !== false)) {
-							$ok = true;
-							break;
-						}
-						if(isset($filter['usage']) && ($place['usage'] === $filter['usage'])) {
-							$ok = true;
-							break;
-						}
-					}
-				}
-				if($ok) {
-					$result[] = $constant;
-				}
-			}
-			self::fillCurrentValues($result);
-			$ah->sendResult($result);
-		}
-		catch(Exception $x) {
-			$ah->sendError($x);
-		}
-	}
-	
-	
 	/** Fills the current values of the constants, adding a 'value' field for the currently defined constants.
 	* @param array $constants
 	*/
 	private static function fillCurrentValues(&$constants) {
-		foreach(array_keys($constants) as $i) {
-			if(defined($constants[$i]['name']))
+		foreach(array_keys($constants) as $name) {
+			if(defined($name))
 			{
-				switch($constants[$i]['name']) {
+				switch($name) {
 					case 'DB_PASSWORD':
 					case 'MANUAL_PASSWORD_SALT':
 					case 'PASSWORD_SALT':
-						$constants[$i]['value'] = array('type' => 'hidden');
+						$constants[$name]['value'] = array('type' => 'hidden');
 						break;
 					default:
-						$value = constant($constants[$i]['name']);
+						$value = constant($name);
 						$type = gettype($value);
 						switch($type = gettype($value)) {
 							case 'string':
@@ -154,11 +197,11 @@ EOT
 							case 'double':
 							case 'boolean':
 							case 'NULL':
-								$constants[$i]['value'] = $value;
+								$constants[$name]['value'] = $value;
 								break;
 							case 'resource':
 							default:
-								$constants[$i]['value'] = array('type' => $type);
+								$constants[$name]['value'] = array('type' => $type);
 								break;
 						}
 						break;
@@ -166,10 +209,25 @@ EOT
 			}
 		}
 	}
-	
+
+	public static function hasSomeScan() {
+		return self::getLastDrillInfo() ? true : false;
+	}
+
 	public static function getLastDrillDatetime() {
 		$info = self::getLastDrillInfo();
 		return self::formatLastUpdate($info ? $info['timestamp'] : null);
+	}
+
+	private static function getCoreRelFolder() {
+		$a = realpath(DIR_BASE);
+		$b = realpath(DIR_BASE_CORE);
+		if(strpos($b, $a) === 0) {
+			return str_replace('\\', '/', substr(DIR_BASE_CORE, strlen(DIR_BASE) + 1));
+		}
+		else {
+			return 'concrete';
+		}
 	}
 
 	/** Returns the last scan id.
@@ -191,16 +249,7 @@ EOT
 
 	/** Loads the last constants saved in the database.
 	* @param int|null $updateDate This optional variable will be filled with the timestamp of the scan.
-	* @return array Returns a list of arrays with the following keys:<ul>
-	*	<li>string <b>name</b></li>
-	*	<li>array <b>places</b> This item contains a list of arrays with the following keys:
-	*		<ul>
-	*			<li>string <b>usage</b> 'defined' or 'used'</li>
-	*			<li>string <b>file</b></li>
-	*			<li>int <b>line</b></li>
-	*		</ul>
-	*	</li>
-	* </ul>
+	* @return array
 	* @throws Exception
 	*/
 	private static function loadConstants(&$updateDate = null) {
@@ -230,29 +279,22 @@ EOT
 				ORDER BY
 					cdcConstant,
 					(CASE cdcpUsage
-						WHEN 'defined' THEN 1
-						WHEN 'used' THEN 2
+						WHEN '" . self::OP_DEFINED . "' THEN 1
+						WHEN '" . self::OP_USED . "' THEN 2
 						ELSE 99
 					END),
 					cdcpFile,
 					cdcpLine
 			", array($cdID));
-			$iConstant = -1;
 			while($row = $rs->FetchRow()) {
 				if(is_null($updateDate)) {
 					$updateDate = intval($row['cdDate']);
 				}
-				if(($iConstant < 0) || ($constants[$iConstant]['name'] != $row['cdcConstant'])) {
-					$constants[++$iConstant] = array(
-						'name' => $row['cdcConstant'],
-						'places' => array()
-					);
+				$name = $row['cdcConstant'];
+				if(!array_key_exists($name, $constants)) {
+					$constants[$name] = array(self::OP_DEFINED => array(), self::OP_USED => array());
 				}
-				$constants[$iConstant]['places'][] = array(
-					'usage' => $row['cdcpUsage'],
-					'file' =>  $row['cdcpFile'],
-					'line' =>  intval($row['cdcpLine'])
-				);
+				$constants[$name][$row['cdcpUsage']][] = array('file' => $row['cdcpFile'], 'line' => intval($row['cdcpLine']));
 			}
 			$rs->Close();
 		}
@@ -265,111 +307,71 @@ EOT
 	*/
 	private static function saveConstants($constants) {
 		$db = Loader::db();
-		$db->Execute('SET FOREIGN_KEY_CHECKS = 0');
+		$db->Execute('INSERT INTO ConstantDrills () VALUES ()');
+		$cdID = $db->Insert_ID('ConstantDrills', 'cdID');
 		try {
-			$db->Execute('INSERT INTO ConstantDrills () VALUES ()');
-			$cdID = $db->Insert_ID('ConstantDrills', 'cdID');
-			try {
-				foreach($constants as $constant) {
-					$db->Execute('INSERT INTO ConstantDrillConstants (cdcCD, cdcConstant) VALUES (?, ?)', array($cdID, $constant['name']));
-					$cdcID = $db->Insert_ID('ConstantDrillConstants', 'cdcID');
-					foreach($constant['places'] as $place) {
-						$db->Execute('INSERT INTO ConstantDrillConstantPlaces (cdcpCDC, cdcpUsage, cdcpFile, cdcpLine) VALUES (?, ?, ?, ?)', array($cdcID, $place['usage'], $place['file'], $place['line']));
+			foreach($constants as $name => $usages) {
+				$db->Execute('INSERT INTO ConstantDrillConstants (cdcCD, cdcConstant) VALUES (?, ?)', array($cdID, $name));
+				$cdcID = $db->Insert_ID('ConstantDrillConstants', 'cdcID');
+				$data = array();
+				foreach($usages as $usage => $places) {
+					foreach($places as $place) {
+						$data[] = array($usage, $place['file'], $place['line']);
+					}
+				}
+				$dataSize = count($data);
+				$dataIndex = -1;
+				$maxInsertsPerQuery = 50;
+				while($dataIndex < $dataSize) {
+					$q = 'INSERT INTO ConstantDrillConstantPlaces (cdcpCDC, cdcpUsage, cdcpFile, cdcpLine) VALUES ';
+					$v = array();
+					for($i = 0; $i < $maxInsertsPerQuery; $i++) {
+						$dataIndex++;
+						if($dataIndex == $dataSize) {
+							break;
+						}
+						$q .= ($i ? ', ' : '') . ' (?, ?, ?, ?)';
+						$v = array_merge($v, array($cdcID), $data[$dataIndex]);
+					}
+					if(count($v)) {
+						$db->Execute($q, $v);
 					}
 				}
 			}
-			catch(Exception $x) {
-				try {
-					$db->Execute('DELETE ConstantDrillConstantPlaces.* FROM (ConstantDrills INNER JOIN ConstantDrillConstants ON ConstantDrills.cdID = ConstantDrillConstants.cdcCD) INNER JOIN ConstantDrillConstantPlaces ON ConstantDrillConstants.cdcID = ConstantDrillConstantPlaces.cdcpCDC WHERE ConstantDrills.cdID = ?', array($cdID));
-					$db->Execute('DELETE ConstantDrillConstants.* FROM ConstantDrills INNER JOIN ConstantDrillConstants ON ConstantDrills.cdID = ConstantDrillConstants.cdcCD WHERE ConstantDrills.cdID = ?', array($cdID));
-					$db->Execute('DELETE FROM ConstantDrills WHERE cdID = ?', array($cdID));
-				}
-				catch(Exception $foo1) {
-				}
-				throw $x;
-			}
 		}
-		catch(Exception $foo2) {
+		catch(Exception $x) {
 			try {
-				$db->Execute('SET FOREIGN_KEY_CHECKS = 1');
+				$db->Execute('DELETE ConstantDrillConstantPlaces.* FROM (ConstantDrills INNER JOIN ConstantDrillConstants ON ConstantDrills.cdID = ConstantDrillConstants.cdcCD) INNER JOIN ConstantDrillConstantPlaces ON ConstantDrillConstants.cdcID = ConstantDrillConstantPlaces.cdcpCDC WHERE ConstantDrills.cdID = ?', array($cdID));
+				$db->Execute('DELETE ConstantDrillConstants.* FROM ConstantDrills INNER JOIN ConstantDrillConstants ON ConstantDrills.cdID = ConstantDrillConstants.cdcCD WHERE ConstantDrills.cdID = ?', array($cdID));
+				$db->Execute('DELETE FROM ConstantDrills WHERE cdID = ?', array($cdID));
 			}
-			catch(Exception $foo3) {
+			catch(Exception $foo) {
 			}
+			throw $x;
 		}
 	}
 
 	/** Collects all the php constants used in the php files of the whole website.
-	* @return array Returns a list of arrays with the following keys:<ul>
-	*	<li>string <b>name</b></li>
-	*	<li>array <b>places</b> This item contains a list of arrays with the following keys:
-	*		<ul>
-	*			<li>string <b>usage</b> 'defined' or 'used'</li>
-	*			<li>string <b>file</b></li>
-	*			<li>int <b>line</b></li>
-	*		</ul>
-	*	</li>
-	* </ul>
+	* @return array
 	* @throws Exception
 	*/
 	private static function scanConstants() {
-		$files = array();
-		self::scanDirectory('', DIR_BASE, $files);
 		$constants = array();
-		foreach($files as $file) {
-			foreach(array('defined', 'used') as $op) {
-				foreach($file[$op] as $op1) {
-					$constants[$op1['name']] = array('defined' => array(), 'used' => array());
-				}
-			}
+		for($step = 1; $step <= 2; $step++) {
+			self::scanDirectory('', DIR_BASE, $constants, $step);
 		}
-		foreach($files as $file) {
-			foreach(array('defined', 'used') as $op) {
-				foreach($file[$op] as $op1) {
-					$info = $op1;
-					unset($info['name']);
-					$info['file'] = $file['rel'];
-					$constants[$op1['name']][$op][] = $info;
-				}
-			}
-			foreach($file['usedMaybe'] as $u) {
-				if(array_key_exists($u['name'], $constants)) {
-					$info = $u;
-					unset($info['name']);
-					$info['file'] = $file['rel'];
-					$constants[$u['name']]['used'][] = $info;
-				}
-			}
-		}
-		$result = array();
 		ksort($constants);
-		foreach($constants as $name => $info) {
-			$result1 = array(
-				'name' => $name,
-				'places' => array()
-			);
-			foreach($info as $usage => $places) {
-				foreach($places as $place) {
-					$result1['places'][] = array_merge(array('usage' => $usage), $place);
-				}
-			}
-			$result[] = $result1;
-		}
-		return $result;
+		return $constants;
 	}
 
-	/** Parses a direcotry looking for php files, from which extracts info about PHP constants (we'll assume that constants are upper case; constants that aren't upper-case may not be detected in the usedMaybe lists).
+	/** Parses a direcotry looking for php files (need to be done in two passages), from which extracts info about PHP constants (we'll assume that constants are upper case; constants that aren't upper-case may not be detected in the usedMaybe lists).
 	* @param string $rel Relative directory name.
 	* @param string $full Full directory path
-	* @param array $files Collected data will be added here. Each file has the fillowing keys:<ul>
-	*	<li>string <b>rel</b> Relative file name
-	*	<li>string <b>full</b> Full path of the file name
-	*	<li>array <b>defined</b> List of defined constants (list of array with keys <b>line</b> and <b>name</b>)
-	*	<li>array <b>used</b> List of used constants (list of array with keys <b>line</b> and <b>name</b>)
-	*	<li>array <b>usedMaybe</b> List of probably used constants (list of array with keys <b>line</b> and <b>name</b>)
-	* </ul>
+	* @param array $constants Collected data will be added here.
+	* @param int $step Set to 1 for the first passage (catch 'define' and 'defined'), to 2 for the second passage (catch usage).
 	* @throws Exception
 	*/
-	private static function scanDirectory($rel, $full, &$files) {
+	private static function scanDirectory($rel, $full, &$constants, $step) {
 		if(is_dir($full) && is_readable($full)) {
 			$hDir = @opendir($full);
 			if($hDir) {
@@ -397,103 +399,103 @@ EOT
 				@closedir($hDir);
 				natcasesort($subFiles);
 				foreach($subFiles as $subFile) {
-					$file = array(
-						'rel' => $rel . $subFile,
-						'full' => $full . $subFile,
-						'defined' => array(),
-						'used' => array(),
-						'usedMaybe' => array()
-					);
-					$add = false;
-					$phpCode = @file_get_contents($file['full']);
+					$subFileRel = $rel . $subFile;
+					$subFileFull = $full . $subFile;
+					$phpCode = @file_get_contents($subFileFull);
 					if($phpCode === false) {
-						throw new Exception('Error reading the file ' . $file['rel']);
+						throw new Exception('Error reading the file ' . $subFileFull);
 					}
 					$tokens = token_get_all($phpCode);
 					$n = count($tokens);
-					for($i = 0; $i < $n; $i++) {
-						$op = '';
-						if(is_array($tokens[$i])) {
-							switch($tokens[$i][0]) {
-								case T_STRING:
-									$text = strtolower($tokens[$i][1]);
-									switch($text) {
-										case 'defined':
-											$op = 'used';
-											break;
-										case 'define':
-											$op = 'defined';
-											break;
-										default:
-											if($tokens[$i][1] === strtoupper($tokens[$i][1])) {
-												$file['usedMaybe'][] = array('line' => $tokens[$i][2], 'name' => $tokens[$i][1]);
-												$add = true;
+					switch($step) {
+						case 1:
+							for($i = 0; $i < $n; $i++) {
+								$op = '';
+								if(is_array($tokens[$i])) {
+									switch($tokens[$i][0]) {
+										case T_STRING:
+											$text = strtolower($tokens[$i][1]);
+											switch($text) {
+												case 'define':
+													$op = self::OP_DEFINED;
+													break;
+												case 'defined':
+													$op = self::OP_USED;
+													break;
+												default:
 											}
 											break;
 									}
-									break;
-							}
-						}
-						if(strlen($op) && (($i == 0) || (!is_array($tokens[$i - 1])) || ($tokens[$i - 1][0] != T_OBJECT_OPERATOR))) {
-							$line = $tokens[$i][2];
-							$j = $i + 1;
-							// Skip whitespaces
-							while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-								$j++;
-							}
-							// Open parenthesis?
-							if(($j < $n) && ($tokens[$j] === '(')) {
-								$j++;
-								// Skip whitespaces
-								while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-									$j++;
 								}
-								// Constant string?
-								if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/["\']\w+["\']/', $tokens[$j][1])) {
-									$name = substr($tokens[$j][1], 1, -1);
-									if(preg_match('//i', $name))
-									$j++;
+								if(strlen($op) && (($i == 0) || (!is_array($tokens[$i - 1])) || ($tokens[$i - 1][0] != T_OBJECT_OPERATOR))) {
+									$line = $tokens[$i][2];
+									$j = $i + 1;
 									// Skip whitespaces
 									while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
 										$j++;
 									}
-									
-									switch($op) {
-										case 'used':
-											// Close parenthesis?
-											if(($j < $n) && ($tokens[$j] === ')')) {
-												$i = $j + 1;
-												$file[$op][] = array('line' => $line, 'name' => $name);
-												$add = true;
+									// Open parenthesis?
+									if(($j < $n) && ($tokens[$j] === '(')) {
+										$j++;
+										// Skip whitespaces
+										while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+											$j++;
+										}
+										// Constant string?
+										if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/["\']\w+["\']/', $tokens[$j][1])) {
+											$name = substr($tokens[$j][1], 1, -1);
+											if(preg_match('//i', $name))
+												$j++;
+											// Skip whitespaces
+											while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+												$j++;
 											}
-											break;
-										case 'defined':
-											// Comma?
-											if(($j < $n) && ($tokens[$j] === ',')) {
-												$i = $j + 1;
-												$file[$op][] = array('line' => $line, 'name' => $name);
-												$add = true;
+											$add = false;
+											switch($op) {
+												case self::OP_USED:
+													// Close parenthesis?
+													if(($j < $n) && ($tokens[$j] === ')')) {
+														$i = $j + 1;
+														$add = true;
+													}
+													break;
+												case self::OP_DEFINED:
+													// Comma?
+													if(($j < $n) && ($tokens[$j] === ',')) {
+														$i = $j + 1;
+														$add = true;
+													}
+													break;
+											}
+											if($add) {
+												if(!array_key_exists($name, $constants)) {
+													$constants[$name] = array(self::OP_DEFINED => array(), self::OP_USED => array());
+												}
+												$constants[$name][$op][] = array('file' => $subFileRel, 'line' => $line);
+											}
+										}
+									}
+								}
+							}
+							break;
+						case 2:
+							for($i = 0; $i < $n; $i++) {
+								if(is_array($tokens[$i])) {
+									switch($tokens[$i][0]) {
+										case T_STRING:
+											if(array_key_exists($tokens[$i][1], $constants)) {
+												$constants[$tokens[$i][1]][self::OP_USED][] = array('file' => $subFileRel, 'line' => $tokens[$i][2]);
 											}
 											break;
 									}
 								}
 							}
-						}
-					}
-					if($add) {
-						$files[] = $file;
+							break;
 					}
 				}
 				if($rel == '') {
-					$a = realpath(DIR_BASE);
-					$b = realpath(DIR_BASE_CORE);
-					if(strpos($b, $a) === 0) {
-						$c = str_replace('\\', '/', substr(DIR_BASE_CORE, strlen(DIR_BASE) + 1));
-					}
-					else {
-						$c = 'concrete';
-					}
-					self::scanDirectory($c, DIR_BASE_CORE, $files);
+					// Lets look into the core concrete5 folder
+					self::scanDirectory(self::getCoreRelFolder(), DIR_BASE_CORE, $constants, $step);
 				}
 				natcasesort($subDirs);
 				foreach($subDirs as $subDir) {
@@ -504,11 +506,10 @@ EOT
 						case DIRNAME_UPDATES:
 							break;
 						default:
-							self::scanDirectory($subDirRel, $full . $subDir, $files);
+							self::scanDirectory($subDirRel, $full . $subDir, $constants, $step);
 							break;
 					}
 				}
-				if($rel == '')throw new Exception('x');
 			}
 		}
 	}

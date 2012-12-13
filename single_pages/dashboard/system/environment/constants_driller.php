@@ -8,6 +8,7 @@ $fh = Loader::helper('form');
 <script>
 var ConstantDriller = {
 	initialize: function() {
+		ConstantDriller.clearAllData();
 		$(".ccm-pane-options-permanent-search input[type=text]").on("keypress", function(e) {
 			switch(event.which) {
 				case 13:
@@ -17,11 +18,11 @@ var ConstantDriller = {
 			}
 		});
 	},
-	parseData: function(constants, isAll) {
+	parseData: function(constants, isAllKey) {
 		var $foo;
 		$foo = $('<div></div>');
-		var parsed = [];
-		$.each(constants, function() {
+		var parsed = {};
+		$.each(constants, function(name) {
 			if("value" in this) {
 				if(this.value === null) {
 					this.htmlValue = '<span class="null">null</span>';
@@ -49,53 +50,38 @@ var ConstantDriller = {
 			else {
 				this.htmlValue = '<span class="undef"><?php echo t('Not defined'); ?></span>';
 			}
-			parsed.push(this);
+			parsed[name] = this;
 		});
-		if(isAll) {
-			ConstantDriller.allData = parsed;
+		if(typeof(isAllKey) == "string") {
+			ConstantDriller.allData[isAllKey] = parsed;
 		}
 		return parsed;
 	},
-	showAll: function() {
-		if(ConstantDriller.allData) {
-			ConstantDriller.showData(ConstantDriller.allData);
-		}
-		else {
-			jQuery.fn.dialog.showLoader();
-			$.ajax({
-				async: true,
-				cache: false,
-				url: <?php echo $jh->encode(str_replace('&amp;', '&', $this->action('ajax_getall'))); ?>,
-				dataType: "json",
-				success: function(d, status, xhr) {
-					jQuery.fn.dialog.hideLoader();
-					ConstantDriller.showData(ConstantDriller.parseData(d, true));
-				},
-				error: function(xhr, status, error) {
-					jQuery.fn.dialog.hideLoader();
-					alert(xhr.responseText);
-				}
-			});
-		}
+	clearAllData: function() {
+		ConstantDriller.allData = {};
 	},
 	search: function() {
-		var f = {}, s, b = false;
+		var f = {}, s, isAll = true, isAllKey;
 		if((s = $.trim($("#cdConstantName").val())).length) {
 			f.name = s;
-			b = true;
+			isAll = false;
 		}
 		if((s = $.trim($("#cdFilePath").val())).length) {
 			f.file = s;
-			b = true;
+			isAll = false;
 		}
 		if((s = $("#cdUsage").val()).length) {
 			f.usage = s;
-			b = true;
+			isAll = false;
 		}
-		if(!b) {
-			ConstantDriller.showAll();
+		isAllKey = $("#cdNo3rdPartyLibs").prop("checked") ? "ThirtPartyNo" : "ThirtPartyYes";
+		if(isAll && ConstantDriller.allData[isAllKey]) {
+			ConstantDriller.showData(ConstantDriller.allData[isAllKey]);
 		}
 		else {
+			if($("#cdNo3rdPartyLibs").prop("checked")) {
+				f.no3rdparty = 1;
+			}
 			jQuery.fn.dialog.showLoader();
 			$.ajax({
 				async: true,
@@ -106,17 +92,17 @@ var ConstantDriller = {
 				dataType: "json",
 				success: function(d, status, xhr) {
 					jQuery.fn.dialog.hideLoader();
-					ConstantDriller.showData(ConstantDriller.parseData(d, false));
+					ConstantDriller.showData(ConstantDriller.parseData(d, isAll ? isAllKey : null));
 				},
 				error: function(xhr, status, error) {
 					jQuery.fn.dialog.hideLoader();
-					alert(xhr.responseText);
+					alert((xhr.responseText.length < 1000) ? xhr.responseText : xhr.statusText);
 				}
 			});
 		}
 	},
-	rescan: function() {
-		if(!confirm(<?php echo $jh->encode(t('This operation may take a few minutes.') . "\n" . t('Do you want to proceed anyway?')) ?>)) {
+	scan: function(noConfirm) {
+		if(!(noConfirm || confirm(<?php echo $jh->encode(t('This operation may take a few minutes.') . "\n" . t('Do you want to proceed anyway?')) ?>))) {
 			return;
 		}
 		jQuery.fn.dialog.showLoader();
@@ -131,45 +117,25 @@ var ConstantDriller = {
 			},
 			error: function(xhr, status, error) {
 				jQuery.fn.dialog.hideLoader();
-				alert(xhr.responseText);
+				alert((xhr.responseText.length < 1000) ? xhr.responseText : xhr.statusText);
 			}
 		});
 	},
 	showData: function(constants) {
-		var $tb, $tdv, no3rdlibs;
-		no3rdlibs = $("#cdNo3rdPartyLibs").prop("checked");
+		var $tb, $tdv;
 		$tb = $("#ConstantDriller-list tbody");
 		$tb.empty();
-		$.each(constants, function() {
-			var list = {defined: [], used: []}, skip;
-			skip = false;
-			if(no3rdlibs) {
-				skip = true;
-				$.each(this.places, function() {
-					if(this.file.indexOf("concrete/libraries/3rdparty") !== 0) {
-						skip = false;
-						return false;
-					}
-				});
-			}
-			if(skip) {
-				return;
-			}
-			$.each(this.places, function() {
-				var i = $.extend({}, this);
-				delete i.usage;
-				list[this.usage].push(i);
-			});
+		$.each(constants, function(name) {
 			$tb.append($tr = $('<tr></tr>')
-				.append($('<td class="n"></td>').text(this.name).attr("title", this.name))
+				.append($('<td class="n"></td>').text(name).attr("title", name))
 				.append($tdv = $('<td class="v"></td>').html(this.htmlValue))
 				.append($('<td class="p"></td>')
-					.append($('<a href="#" onclick="ConstantDriller.showPlaces(\'<?php echo t('Constant %s defined in…', '[C]'); ?>\'.replace(/\\[C\\]/g, \'' + this.name + '\'), $(this).data(\'list\'));return false"' + (list.defined.length ? '' : ' class="disabled" disabled="disabled"') + '><?php echo t('Defined in…'); ?></a>')
-						.data("list", list.defined)
+					.append($('<a href="#" onclick="ConstantDriller.showPlaces(\'<?php echo t('Constant %s defined in…', '[C]'); ?>\'.replace(/\\[C\\]/g, \'' + name + '\'), $(this).data(\'list\'));return false"' + (this.d.length ? '' : ' class="disabled" disabled="disabled"') + '><?php echo t('Defined in…'); ?></a>')
+						.data("list", this.d)
 					)
 					.append('<br />')
-					.append($('<a href="#" onclick="ConstantDriller.showPlaces(\'<?php echo t('Constant %s used in…', '[C]'); ?>\'.replace(/\\[C\\]/g, \'' + this.name + '\'), $(this).data(\'list\'));return false"' + (list.used.length ? '' : ' class="disabled" disabled="disabled"') + '><?php echo t('Used in…'); ?></a>')
-						.data("list", list.used)
+					.append($('<a href="#" onclick="ConstantDriller.showPlaces(\'<?php echo t('Constant %s used in…', '[C]'); ?>\'.replace(/\\[C\\]/g, \'' + name + '\'), $(this).data(\'list\'));return false"' + (this.u.length ? '' : ' class="disabled" disabled="disabled"') + '><?php echo t('Used in…'); ?></a>')
+						.data("list", this.u)
 					)
 				)
 			);
@@ -226,46 +192,55 @@ var ConstantDriller = {
 };
 $(document).ready(function() {
 	ConstantDriller.initialize();
+	<?php
+	if(!$this->controller->hasSomeScan()) {
+		?>
+		setTimeout(
+			function() {
+				if(confirm(<?php echo $jh->encode(t("We have to do a first-time scan to locate all the constants.") . "\n" . t("Do you want to do it now?") . "\n" . t("PS: this may take a few minites.")); ?>)) {
+					ConstantDriller.scan(true);
+				}
+			},
+			50
+		);
+		<?php
+	}
+	?>
 });
 </script>
 <?php echo $dh->getDashboardPaneHeaderWrapper(t('Constants Driller'), t('The Constants Driller allow you to inspect all the constants used or defined in your concrete5 installation.'), false, false); ?>
 <div class="ccm-pane-options">
 	<a href="javascript:void(0)" onclick="ccm_paneToggleOptions(this)" class="ccm-icon-option-closed"><?=t('Options')?></a>
-	<div class="ccm-pane-options-content">
-		<form class="form-horizontal" onsubmit="return false">
-			<div class="span2">
-				<?php echo $fh->button('cdRescan', t('Rescan'), array('onclick' => 'ConstantDriller.rescan(); return false')); ?>
-			</div>
-			<div class="span6">
-				<?php echo $fh->label('cdNo3rdPartyLibs', t('Exclude 3rd party libraries'), array('style' => 'white-space:nowrap')); ?>
-				<div class="controls">
-					<?php echo $fh->checkbox('cdNo3rdPartyLibs', '', true); ?>
-				</div>
-			</div>
-			<div class="clearfix"></div>
-		</form>
+	<div class="ccm-pane-options-content clearfix">
+		<?php echo $fh->button('cdRescan', t('Rescan'), array('onclick' => 'ConstantDriller.scan(); return false')); ?>
 	</div>
 </div>
 <div class="ccm-pane-options">
 	<form class="form-horizontal" onsubmit="return false">
 		<div class="ccm-pane-options-permanent-search">
-			<div class="span3">
-				<?php echo $fh->label('cdConstantName', t('Constant Name')); ?>
-				<div class="controls">
-					<?php echo $fh->text('cdConstantName', '', array('style'=> 'width: 100px')); ?>
+			<div class="row">
+				<div class="span3">
+					<?php echo $fh->label('cdConstantName', t('Constant')); ?>
+					<div class="controls">
+						<?php echo $fh->text('cdConstantName', '', array('style'=> 'width: 100px', 'title' => t('Constant name'))); ?>
+					</div>
 				</div>
-			</div>
-			<div class="span3">
-				<?php echo $fh->label('cdFilePath', t('File path'))?>
-				<div class="controls">
-					<?php echo $fh->text('cdFilePath', '', array('style'=> 'width: 100px')); ?>
+				<div class="span5">
+					<?php print $fh->select('cdUsage', array('' => t('Defined or used in file'), 'd' => t('Defined in file'), 'u' => t('Used in file')), '', array('style' => 'width:200px')); ?>
+					<?php echo $fh->text('cdFilePath', '', array('style'=> 'width: 100px', 'title' => t('File name'))); ?>
 				</div>
-			</div>
-			<div class="span5">
-				<?php echo $fh->label('cdUsage', t('Usage')); ?>
-				<div class="controls">
-					<?php print $fh->select('cdUsage', array('' => t('Any'), 'defined' => t('Defined'), 'used' => t('Used')), '', array('style' => 'width:100px')); ?>
+				<div class="span1">
 					<?php echo $fh->button('cdSearch', t('Search'), array('style' => 'margin-left: 10px', 'onclick' => 'ConstantDriller.search();return false')); ?>
+				</div>
+			</div>
+			<div class="row">
+				<div class="span6 clearfix">
+					<div class="input">
+						<ul class="inputs-list">
+							<li><input type="checkbox" id="cdNo3rdPartyLibs" checked="checked" /></li>
+						</ul>
+					</div>
+					<label for="cdNo3rdPartyLibs" style="white-space:nowrap;width:auto;">&nbsp;<?php echo t('Exclude 3rd party libraries'); ?></label>
 				</div>
 			</div>
 		</div>
