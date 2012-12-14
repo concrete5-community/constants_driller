@@ -422,7 +422,44 @@ EOT
 												case 'defined':
 													$op = self::OP_USED;
 													break;
+												case 'config':
+													if(($i < ($n - 4)) && is_array($tokens[$i + 1]) && ($tokens[$i + 1][0] == T_DOUBLE_COLON) && is_array($tokens[$i + 2]) && ($tokens[$i + 2][0] == T_STRING) && ((!strcasecmp($tokens[$i + 2][1], 'getOrDefine')) || (!strcasecmp($tokens[$i + 2][1], 'getAndDefine')))) {
+														$line = $tokens[$i][2];
+														$j = $i + 3;
+														// Skip whitespaces
+														while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+															$j++;
+														}
+														// Open parenthesis?
+														if(($j < $n) && ($tokens[$j] === '(')) {
+															$j++;
+															// Skip whitespaces
+															while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+																$j++;
+															}
+															// Constant string?
+															if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/^["\']\w+["\']$/', $tokens[$j][1])) {
+																$name = substr($tokens[$j][1], 1, -1);
+																$j++;
+																// Skip whitespaces
+																while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+																	$j++;
+																}
+																// Comma?
+																if(($j < $n) && ($tokens[$j] === ',')) {
+																	$i = $j + 1;
+																	if(!array_key_exists($name, $constants)) {
+																		$constants[$name] = array(self::OP_DEFINED => array(), self::OP_USED => array());
+																	}
+																	$constants[$name][self::OP_DEFINED][] = array('file' => $subFileRel, 'line' => $line);
+																	
+																}
+															}
+														}
+													}
+													break;
 												default:
+													//Config::getOrDefine('WHITE_LABEL_LOGO_SRC', false);
 											}
 											break;
 									}
@@ -442,10 +479,9 @@ EOT
 											$j++;
 										}
 										// Constant string?
-										if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/["\']\w+["\']/', $tokens[$j][1])) {
+										if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/^["\']\w+["\']$/', $tokens[$j][1])) {
 											$name = substr($tokens[$j][1], 1, -1);
-											if(preg_match('//i', $name))
-												$j++;
+											$j++;
 											// Skip whitespaces
 											while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
 												$j++;
