@@ -37,5 +37,13 @@ class ConstantsDrillerPackage extends Package {
 		}
 		//if($fromScratch || version_compare($upgradeFromVersion, '1.0', '<'))
 	}
+	
+	public function uninstall() {
+		parent::uninstall();
+		$db = Loader::db();
+		$db->Execute('drop table if exists ConstantDrillConstantPlaces');
+		$db->Execute('drop table if exists ConstantDrillConstants');
+		$db->Execute('drop table if exists ConstantDrills');
+	}
 
 }
