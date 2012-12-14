@@ -113,7 +113,7 @@ var ConstantDriller = {
 			dataType: "json",
 			success: function(d, status, xhr) {
 				jQuery.fn.dialog.hideLoader();
-				$(".ccm-pane-footer").text(d.lastUpdate);
+				$("#ConstantDriller-updated").text(d.lastUpdate);
 			},
 			error: function(xhr, status, error) {
 				jQuery.fn.dialog.hideLoader();
@@ -256,6 +256,8 @@ $(document).ready(function() {
 		<tbody></tbody>
 	</table>
 </div>
-<div class="ccm-pane-footer"><?php echo $th->entities($this->controller->GetLastDrillDatetime()); ?></div>
+<div class="ccm-pane-footer">
+	<div style="float:right" id="ConstantDriller-updated"><?php echo $th->entities($this->controller->GetLastDrillDatetime()); ?></div>
+</div>
 <?php
 echo $dh->getDashboardPaneFooterWrapper();
