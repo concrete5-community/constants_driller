@@ -2,6 +2,8 @@
 <schema version="0.3">
 	<table name="ConstantDrills">
 		<descr>List of constants look-ups</descr>
+		<opt platform="MYSQL">ENGINE=MYISAM</opt>
+		<opt platform="MYSQLT">ENGINE=MYISAM</opt>
 		<field name="cdID" type="I">
 			<autoincrement />
       	<key />
@@ -15,6 +17,8 @@
 	</table>
 	<table name="ConstantDrillConstants">
 		<descr>List of constants for each look-up</descr>
+		<opt platform="MYSQL">ENGINE=MYISAM</opt>
+		<opt platform="MYSQLT">ENGINE=MYISAM</opt>
 		<field name="cdcID" type="I">
 			<autoincrement />
       	<key />
@@ -31,6 +35,8 @@
 	</table>
 	<table name="ConstantDrillConstantPlaces">
 		<descr>List of places and usage for each constant</descr>
+		<opt platform="MYSQL">ENGINE=MYISAM</opt>
+		<opt platform="MYSQLT">ENGINE=MYISAM</opt>
 		<field name="cdcpID" type="I">
 			<autoincrement />
       	<key />
