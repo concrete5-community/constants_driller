@@ -76,6 +76,7 @@ EOT
 								default:
 									$ah->sendError(t('Invalid parameter: %s', $name));
 							}
+							break;
 						case 'file':
 							$value = str_replace('\\', '/', $value);
 							break;
@@ -91,6 +92,7 @@ EOT
 								default:
 									$ah->sendError(t('Invalid parameter: %s', $name));
 							}
+							break;
 					}
 					if(!is_null($value)) {
 						$filter[$name] = $value;

@@ -4,7 +4,7 @@ class ConstantsDrillerPackage extends Package {
 
 	protected $pkgHandle = 'constants_driller';
 	protected $appVersionRequired = '5.5';
-	protected $pkgVersion = '0.9';
+	protected $pkgVersion = '0.9.1';
 	
 	public function getPackageDescription() {
 		return t('Deep analysis and report of PHP constants used by concrete5.');
