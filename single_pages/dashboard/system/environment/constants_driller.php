@@ -210,7 +210,7 @@ $(document).ready(function() {
 </script>
 <?php echo $dh->getDashboardPaneHeaderWrapper(t('Constants Driller'), t('The Constants Driller allow you to inspect all the constants used or defined in your concrete5 installation.'), false, false); ?>
 <div class="ccm-pane-options">
-	<a href="javascript:void(0)" onclick="ccm_paneToggleOptions(this)" class="ccm-icon-option-closed"><?=t('Options')?></a>
+	<a href="javascript:void(0)" onclick="ccm_paneToggleOptions(this)" class="ccm-icon-option-closed"><?php echo t('Options'); ?></a>
 	<div class="ccm-pane-options-content clearfix">
 		<?php echo $fh->button('cdRescan', t('Rescan'), array('onclick' => 'ConstantDriller.scan(); return false')); ?>
 	</div>
